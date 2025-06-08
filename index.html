@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Змейка</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #f0f0f0;
+    }
+
+    canvas {
+      background: #fff;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="canvas" width="400" height="400"></canvas>
+  <script>
+    // Получаем canvas и создаём контекст для рисования 2D-графики
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    // Устанавливаем размеры канваса и блоков
+    const width = canvas.width;
+    const height = canvas.height;
+    const blockSize = 10;
+    const widthInBlocks = width / blockSize;
+    const heightInBlocks = height / blockSize;
+    let score = 0; // начальный счёт
+
+    // Рисуем серую рамку по краям канваса
+    const drawBorder = () => {
+      ctx.fillStyle = "Gray";
+      ctx.fillRect(0, 0, width, blockSize);
+      ctx.fillRect(0, height - blockSize, width, blockSize);
+      ctx.fillRect(0, 0, blockSize, height);
+      ctx.fillRect(width - blockSize, 0, blockSize, height);
+    };
+
+    // Отображает счёт игрока
+    const drawScore = () => {
+      ctx.font = "20px Courier";
+      ctx.fillStyle = "Black";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText("Счёт: " + score, blockSize, blockSize);
+    };
+
+    // Завершает игру и отображает сообщение
+    const gameOver = () => {
+      clearInterval(intervalId);
+      ctx.font = "60px Courier";
+      ctx.fillStyle = "Black";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("Конец игры", width / 2, height / 2);
+    };
+
+    // Вспомогательная функция: рисует круг
+    const circle = (x, y, radius, fillCircle) => {
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2, false);
+      fillCircle ? ctx.fill() : ctx.stroke();
+    };
+
+    // Класс Block представляет клетку сетки
+    class Block {
+      constructor(col, row) {
+        this.col = col;
+        this.row = row;
+      }
+
+      // Рисует квадрат на позиции блока
+      drawSquare(color) {
+        const x = this.col * blockSize;
+        const y = this.row * blockSize;
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, blockSize, blockSize);
+      }
+
+      // Рисует круг (используется для яблока)
+      drawCircle(color) {
+        const centerX = this.col * blockSize + blockSize / 2;
+        const centerY = this.row * blockSize + blockSize / 2;
+        ctx.fillStyle = color;
+        circle(centerX, centerY, blockSize / 2, true);
+      }
+
+      // Проверяет, равны ли координаты блоков
+      equal(otherBlock) {
+        return this.col === otherBlock.col && this.row === otherBlock.row;
+      }
+    }
+
+    // Класс Snake — логика змейки
+    class Snake {
+      constructor() {
+        this.segments = [
+          new Block(7, 5),
+          new Block(6, 5),
+          new Block(5, 5)
+        ];
+        this.direction = "right";
+        this.nextDirection = "right";
+      }
+
+      // Рисует сегменты змейки
+      draw() {
+        for (const segment of this.segments) {
+          segment.drawSquare("Blue");
+        }
+      }
+
+      // Двигает змейку вперёд
+      move() {
+        const head = this.segments[0];
+        let newHead;
+
+        this.direction = this.nextDirection;
+
+        // Определяем направление и создаём новую голову
+        switch (this.direction) {
+          case "right":
+            newHead = new Block(head.col + 1, head.row);
+            break;
+          case "down":
+            newHead = new Block(head.col, head.row + 1);
+            break;
+          case "left":
+            newHead = new Block(head.col - 1, head.row);
+            break;
+          case "up":
+            newHead = new Block(head.col, head.row - 1);
+            break;
+        }
+
+        // Проверка столкновений
+        if (this.checkCollision(newHead)) {
+          gameOver();
+          return;
+        }
+
+        this.segments.unshift(newHead); // добавляем новую голову
+
+        // Проверка съедено ли яблоко
+        if (newHead.equal(apple.position)) {
+          score++;
+          apple.move();
+        } else {
+          this.segments.pop(); // удаляем хвост, если не съедено
+        }
+      }
+
+      // Проверка на столкновение со стеной или с собой
+      checkCollision(head) {
+        const left = head.col === 0;
+        const top = head.row === 0;
+        const right = head.col === widthInBlocks - 1;
+        const bottom = head.row === heightInBlocks - 1;
+        const wallCollision = left || top || right || bottom;
+
+        const selfCollision = this.segments.some(segment => head.equal(segment));
+        return wallCollision || selfCollision;
+      }
+
+      // Устанавливает новое направление, если оно допустимо
+      setDirection(newDirection) {
+        const oppositeDirections = {
+          up: "down",
+          down: "up",
+          left: "right",
+          right: "left"
+        };
+        if (newDirection !== oppositeDirections[this.direction]) {
+          this.nextDirection = newDirection;
+        }
+      }
+    }
+
+    // Класс Apple — логика яблока
+    class Apple {
+      constructor() {
+        this.position = new Block(10, 10);
+      }
+
+      // Рисует яблоко
+      draw() {
+        this.position.drawCircle("LimeGreen");
+      }
+
+      // Перемещает яблоко в случайное место внутри поля
+      move() {
+        const randomCol = Math.floor(Math.random() * (widthInBlocks - 2)) + 1;
+        const randomRow = Math.floor(Math.random() * (heightInBlocks - 2)) + 1;
+        this.position = new Block(randomCol, randomRow);
+      }
+    }
+
+    // Создаём объекты змейки и яблока
+    const snake = new Snake();
+    const apple = new Apple();
+
+    // Запускаем игру: обновляем экран каждые 100 мс
+    const intervalId = setInterval(() => {
+      ctx.clearRect(0, 0, width, height); // очищаем экран
+      drawScore();
+      snake.move();
+      snake.draw();
+      apple.draw();
+      drawBorder();
+    }, 100);
+
+    // Обрабатываем нажатие клавиш для управления
+    const directions = {
+      37: "left",
+      38: "up",
+      39: "right",
+      40: "down"
+    };
+
+    document.addEventListener("keydown", (event) => {
+      const newDirection = directions[event.keyCode];
+      if (newDirection) {
+        snake.setDirection(newDirection);
+      }
+    });
+
+  </script>
+</body>
+
+</html>
