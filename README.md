@@ -1,1 +1,1 @@
-# snake-game
+# snake-game educational code from book
